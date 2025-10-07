@@ -6,14 +6,14 @@ import spectrum
 import signals
 import converters
 # ADC parameters
-adc_freq = 48.813e3
-adc_buff_n = 8192
-adc_bits = 12
+adc_freq = 48.813e3  # Sample rate
+adc_buff_n = 8192  # Buffer length
+adc_bits = 12  # Number of bits
 adc_quants = 2 ** adc_bits
 adc_vref = 3.3
 adc_quant_v = adc_vref / adc_quants
 
-# input signal parameters
+# Input signal parameters
 sig_points = adc_buff_n
 sig_vpeak_max = adc_vref / 2
 sig_vpeak = 1.5
