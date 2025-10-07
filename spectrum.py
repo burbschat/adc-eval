@@ -166,21 +166,19 @@ def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning'):
     ax_time = plt.subplot(gs[0, 0])
     ax_time_xlim = min(sig_n, int(5 * sig_prd / dt))
     ax_time.plot(np.arange(0, ax_time_xlim), sig[:ax_time_xlim], color='C0')
-    ax_time.set(ylabel='ADC code', ylim=[0, adc_quants])
-    ax_time.set(yticks=list(range(0, adc_quants, adc_quants // 8)) + [adc_quants - 1])
+    ax_time.set(ylabel='ADC Count')
     ax_time.set(xlabel='Sample', xlim=[0, ax_time_xlim - 1])
-    ax_time.set(xticks=range(0, ax_time_xlim, max(1, ax_time_xlim // 20)))
     ax_time.grid(True)
     ax_time_xsec = ax_time.twiny()
     ax_time_xsec.set(xticks=ax_time.get_xticks())
     ax_time_xsec.set(xbound=ax_time.get_xbound())
-    ax_time_xsec.set_xticklabels(['%.02f' % (x * dt * 1e3) for x in ax_time.get_xticks()])
-    ax_time_xsec.set_xlabel('Time, ms')
+    ax_time_xsec.set_xticklabels(['%.02e' % (x * dt) for x in ax_time.get_xticks()])
+    ax_time_xsec.set_xlabel('Time [s]')
     ax_time_ysec = ax_time.twinx()
     ax_time_ysec.set(yticks=ax_time.get_yticks())
     ax_time_ysec.set(ybound=ax_time.get_ybound())
     ax_time_ysec.set_yticklabels(['%.02f' % (x * dv) for x in ax_time.get_yticks()])
-    ax_time_ysec.set_ylabel('Voltage, V')
+    ax_time_ysec.set_ylabel('Voltage [V]')
 
     # Frequency plot
     ax_freq = plt.subplot(gs[1, 0])
@@ -190,22 +188,21 @@ def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning'):
                      va='bottom', ha='left', weight='bold')
         ax_freq.plot(h_i['bins'], psp_db[h_i['bins']], color='C4')
     ax_freq.plot(0, 0, color='C4', label="Harmonics")
-    ax_freq.set(ylabel='dB', ylim=[-150, 10])
+    ax_freq.set(ylabel='dB')
     ax_freq.set(xlabel='Sample', xlim=[0, fft_n / 2])
-    ax_freq.set(xticks=list(range(0, fft_n // 2, fft_n // 32)) + [fft_n // 2 - 1])
     ax_freq.grid(True)
     ax_freq.legend(loc="lower right", ncol=3)
     ax_freq_sec = ax_freq.twiny()
     ax_freq_sec.set_xticks(ax_freq.get_xticks())
     ax_freq_sec.set_xbound(ax_freq.get_xbound())
-    ax_freq_sec.set_xticklabels(['%.02f' % (x * df * 1e-3) for x in ax_freq.get_xticks()])
-    ax_freq_sec.set_xlabel('Frequency, kHz')
+    ax_freq_sec.set_xticklabels(['%.02e' % (x * df) for x in ax_freq.get_xticks()])
+    ax_freq_sec.set_xlabel('Frequency [Hz]')
 
     # Information plot
     ax_info = plt.subplot(gs[:, 1])
     ax_info.set(xlim=[0, 10], xticks=[], ylim=[0, 10], yticks=[])
     harmonics_str = '\n'.join(['%d%s @ %-10s : %s' % (h_i['num'], ['st', 'nd', 'rd', 'th', 'th'][h_i['num'] - 1],
-                                                      '%0.3f kHz' % (h_i['freq'] * 1e-3),
+                                                      '%0.3e Hz' % (h_i['freq']),
                                                       h_i['db']) for h_i in h])
     ax_info_str = """
 ========= FFT ==========
@@ -217,12 +214,12 @@ Window           : {fft_window}
 {harmonics_str}
 
 ===== Input signal =====
-Frequency        : {sig_freq:.4} kHz
+Frequency        : {sig_freq:.4} Hz
 Amplitude (Vpeak): {sig_vpeak:.4} V
 DC offset        : {sig_dc:.4} V
 
 ========= ADC ==========
-Sampling freq.   : {adc_freq:.4} kHz
+Sampling freq.   : {adc_freq:.4} Hz
 Sampling period  : {adc_prd:.4} us
 Reference volt.  : {adc_vref:.4} V
 Bits             : {adc_bits} bits
@@ -238,10 +235,10 @@ Noise floor      : {adc_nfloor:.4} dBFS
            fft_res=df,
            fft_window=window,
            harmonics_str=harmonics_str,
-           sig_freq=sig_freq * 1e-3,
+           sig_freq=sig_freq,
            sig_vpeak=sig_vpeak,
            sig_dc=sig_dc,
-           adc_freq=adc_freq * 1e-3,
+           adc_freq=adc_freq,
            adc_prd=adc_prd * 1e6,
            adc_vref=adc_vref,
            adc_bits=adc_bits,
