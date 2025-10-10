@@ -106,7 +106,7 @@ def signal_noise(psp, harmonics):
     return sinad, thd, snr, sfdr
 
 
-def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning'):
+def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning', sp_leak=10, h_n=5):
     """Do spectral analysis for ADC samples"""
     # Calculate some useful parameters
     sig_vpeak_max = adc_vref / 2
@@ -122,8 +122,6 @@ def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning'):
     df = adc_freq / fft_n
     win_coef = {'uniform': np.ones(sig_n),
                 'hanning': np.hanning(sig_n)}[window]
-    sp_leak = 20  # spectru leak bins
-    h_n = 5  # harmonics number
 
     # Convert samples to voltage
     sig_v = sig * dv
