@@ -70,7 +70,8 @@ def harmonics(psp, fft_n, ref_pow, sample_freq, leak=20, n=5, window='hanning'):
         h_i = {'num': i}
         zone_freq = (fund_freq * i) % sample_freq
         h_i['freq'] = sample_freq - zone_freq if zone_freq >= (sample_freq / 2) else zone_freq
-        h_i['central_bin'] = int(h_i['freq'] / df)
+        # Round first to avoid off center bin for very sharp peaks
+        h_i['central_bin'] = int(round(h_i['freq'] / df))
         h_i['bins'] = np.array(range(h_i['central_bin'] - leak, h_i['central_bin'] + leak + 1))
         h_i['pow'] = ((1 / win_params['cg']) ** 2) * np.sum(psp[h_i['bins']]) / win_params['npb']
         h_i['vrms'] = np.sqrt(h_i['pow'])
