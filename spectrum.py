@@ -157,6 +157,9 @@ def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning', sp_leak=10, h_n
     # Calculate Noise Floor
     adc_noise_floor = noise_floor(adc_snr, fft_n)
 
+    # Dump local variables to json
+    vars_dict = {varname: varcontent for varname, varcontent in locals().items() if not varname.startswith("_")}
+
     # Create plots
     fig = plt.figure(figsize=(14, 7))
     gs = matplotlib.gridspec.GridSpec(2, 2, width_ratios=[3, 1])
@@ -257,3 +260,5 @@ Noise floor      : {adc_nfloor:.4} dBFS
 
     # Show the result
     plt.show()
+
+    return vars_dict
