@@ -56,7 +56,11 @@ def harmonics(psp, fft_n, ref_pow, sample_freq, leak=20, n=5, window="hanning"):
     # Coherence Gain and Noise Power Bandwidth for different windows
     win_params = {
         "uniform": {"cg": 1.0, "npb": 1.0},
+        # NOTE: These values might be for a hanning window with cosine squared, 
+        # which is not what is returned by the numpy hanning function!
         "hanning": {"cg": 0.5, "npb": 1.5},
+        # Should be (?):
+        # "hanning": {"cg": 0.64, "npb": 1.23},
         "hamming": {"cg": 0.54, "npb": 1.36},
         "blackman": {"cg": 0.42, "npb": 1.73},
     }[window]
@@ -75,6 +79,9 @@ def harmonics(psp, fft_n, ref_pow, sample_freq, leak=20, n=5, window="hanning"):
         h_i["freq"] = sample_freq - zone_freq if zone_freq >= (sample_freq / 2) else zone_freq
         # Round first to avoid off center bin for very sharp peaks
         h_i["central_bin"] = int(round(h_i["freq"] / df))
+        # NOTE: Possibly the corrections here assume they are applied to the
+        # peak value, not the integral of the peak. This may lead to
+        # over-estimatino of the signal power 
         h_i["bins"] = np.array(range(h_i["central_bin"] - leak, h_i["central_bin"] + leak + 1))
         h_i["pow"] = ((1 / win_params["cg"]) ** 2) * np.sum(psp[h_i["bins"]]) / win_params["npb"]
         h_i["vrms"] = np.sqrt(h_i["pow"])
