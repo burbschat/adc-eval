@@ -51,34 +51,37 @@ def noise_floor(snr, m):
     return -snr - 10 * np.log10(m / 2)
 
 
-def harmonics(psp, fft_n, ref_pow, sample_freq, leak=20, n=5, window='hanning'):
+def harmonics(psp, fft_n, ref_pow, sample_freq, leak=20, n=5, window="hanning"):
     """Obtain first n harmonics properties from power spectrum"""
     # Coherence Gain and Noise Power Bandwidth for different windows
-    win_params = {'uniform': {'cg': 1.0, 'npb': 1.0},
-                  'hanning': {'cg': 0.5, 'npb': 1.5},
-                  'hamming': {'cg': 0.54, 'npb': 1.36},
-                  'blackman': {'cg': 0.42, 'npb': 1.73}}[window]
+    win_params = {
+        "uniform": {"cg": 1.0, "npb": 1.0},
+        "hanning": {"cg": 0.5, "npb": 1.5},
+        "hamming": {"cg": 0.54, "npb": 1.36},
+        "blackman": {"cg": 0.42, "npb": 1.73},
+    }[window]
     fft_n = len(psp) * 2  # one side spectrum provided
     df = sample_freq / fft_n
     # calculate fundamental frequency
     fund_bin = np.argmax(psp)
-    fund_freq = (np.sum([psp[i] * i * df for i in range(fund_bin - leak, fund_bin + leak + 1)]) /
-                 np.sum(psp[fund_bin - leak: fund_bin + leak + 1]))
+    fund_freq = np.sum([psp[i] * i * df for i in range(fund_bin - leak, fund_bin + leak + 1)]) / np.sum(
+        psp[fund_bin - leak : fund_bin + leak + 1]
+    )
     # calculate harmonics info
     h = []
     for i in range(1, n + 1):
-        h_i = {'num': i}
+        h_i = {"num": i}
         zone_freq = (fund_freq * i) % sample_freq
-        h_i['freq'] = sample_freq - zone_freq if zone_freq >= (sample_freq / 2) else zone_freq
+        h_i["freq"] = sample_freq - zone_freq if zone_freq >= (sample_freq / 2) else zone_freq
         # Round first to avoid off center bin for very sharp peaks
-        h_i['central_bin'] = int(round(h_i['freq'] / df))
-        h_i['bins'] = np.array(range(h_i['central_bin'] - leak, h_i['central_bin'] + leak + 1))
-        h_i['pow'] = ((1 / win_params['cg']) ** 2) * np.sum(psp[h_i['bins']]) / win_params['npb']
-        h_i['vrms'] = np.sqrt(h_i['pow'])
+        h_i["central_bin"] = int(round(h_i["freq"] / df))
+        h_i["bins"] = np.array(range(h_i["central_bin"] - leak, h_i["central_bin"] + leak + 1))
+        h_i["pow"] = ((1 / win_params["cg"]) ** 2) * np.sum(psp[h_i["bins"]]) / win_params["npb"]
+        h_i["vrms"] = np.sqrt(h_i["pow"])
         if i == 1:
-            h_i['db'] = '%.2f dBFS' % pow2db(h_i['pow'] / ref_pow)
+            h_i["db"] = "%.2f dBFS" % pow2db(h_i["pow"] / ref_pow)
         else:
-            h_i['db'] = '%.2f dBc' % pow2db(h_i['pow'] / h[0]['pow'])
+            h_i["db"] = "%.2f dBc" % pow2db(h_i["pow"] / h[0]["pow"])
         h += [h_i]
     return h
 
@@ -87,41 +90,40 @@ def signal_noise(psp, harmonics):
     """Obtain different signal+noise characteristics from spectrum"""
     # noise + distortion power
     nd_psp = np.copy(psp)
-    nd_psp[harmonics[0]['bins']] = 0  # remove main harmonic
+    nd_psp[harmonics[0]["bins"]] = 0  # remove main harmonic
     nd_psp[0] = 0  # remove dc
     nd_pow = sum(nd_psp)
     # noise power
     n_psp = np.copy(psp)
     for h in harmonics:
-        n_psp[h['bins']] = 0  # remove all harmonics
+        n_psp[h["bins"]] = 0  # remove all harmonics
     n_psp[0] = 0  # remove dc
     n_pow = sum(n_psp)
     # distortion power
-    d_pow = np.sum([h['pow'] for h in harmonics]) - harmonics[0]['pow']
+    d_pow = np.sum([h["pow"] for h in harmonics]) - harmonics[0]["pow"]
     # calculate results
-    sinad = pow2db(harmonics[0]['pow'] / nd_pow)
-    thd = pow2db(harmonics[0]['pow'] / d_pow)
-    snr = pow2db(harmonics[0]['pow'] / n_pow)
-    sfdr = pow2db(max(nd_psp) / harmonics[0]['pow'])
+    sinad = pow2db(harmonics[0]["pow"] / nd_pow)
+    thd = pow2db(harmonics[0]["pow"] / d_pow)
+    snr = pow2db(harmonics[0]["pow"] / n_pow)
+    sfdr = pow2db(max(nd_psp) / harmonics[0]["pow"])
     return sinad, thd, snr, sfdr
 
 
-def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning', sp_leak=10, h_n=5):
+def analyze(sig, adc_bits, adc_vref, adc_freq, window="hanning", sp_leak=10, h_n=5):
     """Do spectral analysis for ADC samples"""
     # Calculate some useful parameters
     sig_vpeak_max = adc_vref / 2
     sig_vrms_max = sig_vpeak_max / np.sqrt(2)
-    sig_pow_max = sig_vrms_max ** 2
+    sig_pow_max = sig_vrms_max**2
     ref_pow = sig_pow_max
     adc_prd = 1 / adc_freq
-    adc_quants = 2 ** adc_bits
+    adc_quants = 2**adc_bits
     dv = adc_vref / adc_quants
     sig_n = len(sig)
     dt = 1 / adc_freq
     fft_n = sig_n
     df = adc_freq / fft_n
-    win_coef = {'uniform': np.ones(sig_n),
-                'hanning': np.hanning(sig_n)}[window]
+    win_coef = {"uniform": np.ones(sig_n), "hanning": np.hanning(sig_n)}[window]
 
     # Convert samples to voltage
     sig_v = sig * dv
@@ -141,10 +143,10 @@ def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning', sp_leak=10, h_n
     h = harmonics(psp=psp, fft_n=fft_n, ref_pow=ref_pow, sample_freq=adc_freq, leak=sp_leak, n=h_n, window=window)
 
     # Input signal parameters (based on 1st harmonic)
-    sig_pow = h[0]['pow']
-    sig_vrms = h[0]['vrms']
+    sig_pow = h[0]["pow"]
+    sig_vrms = h[0]["vrms"]
     sig_vpeak = sig_vrms * np.sqrt(2)
-    sig_freq = h[0]['freq']
+    sig_freq = h[0]["freq"]
     sig_prd = 1 / sig_freq
 
     # Calculate SINAD, THD, SNR, SFDR
@@ -157,8 +159,23 @@ def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning', sp_leak=10, h_n
     # Calculate Noise Floor
     adc_noise_floor = noise_floor(adc_snr, fft_n)
 
-    # Dump local variables to json
+    # Dump local variables to dictionary for later reference
     vars_dict = {varname: varcontent for varname, varcontent in locals().items() if not varname.startswith("_")}
+
+    return vars_dict
+
+
+def plot(vars_dict):
+    # Get required variables from the dictionary
+    sig_prd = vars_dict["sig_prd"]
+    dt = vars_dict["dt"]
+    sig_n = vars_dict["sig_n"]
+    sig = vars_dict["sig"]
+    dv = vars_dict["dv"]
+    psp_db = vars_dict["psp_db"]
+    fft_n = vars_dict["fft_n"]
+    df = vars_dict["df"]
+    h = vars_dict["h"]
 
     # Create plots
     fig = plt.figure(figsize=(14, 7))
@@ -167,45 +184,50 @@ def analyze(sig, adc_bits, adc_vref, adc_freq, window='hanning', sp_leak=10, h_n
     # Time plot
     ax_time = plt.subplot(gs[0, 0])
     ax_time_xlim = min(sig_n, int(5 * sig_prd / dt))
-    ax_time.plot(np.arange(0, ax_time_xlim), sig[:ax_time_xlim], color='C0')
-    ax_time.set(ylabel='ADC Count')
-    ax_time.set(xlabel='Sample', xlim=[0, ax_time_xlim - 1])
+    ax_time.plot(np.arange(0, ax_time_xlim), sig[:ax_time_xlim], color="C0")
+    ax_time.set(ylabel="ADC Count")
+    ax_time.set(xlabel="Sample", xlim=[0, ax_time_xlim - 1])
     ax_time.grid(True)
     ax_time_xsec = ax_time.twiny()
     ax_time_xsec.set(xticks=ax_time.get_xticks())
     ax_time_xsec.set(xbound=ax_time.get_xbound())
-    ax_time_xsec.set_xticklabels(['%.02e' % (x * dt) for x in ax_time.get_xticks()])
-    ax_time_xsec.set_xlabel('Time [s]')
+    ax_time_xsec.set_xticklabels(["%.02e" % (x * dt) for x in ax_time.get_xticks()])
+    ax_time_xsec.set_xlabel("Time [s]")
     ax_time_ysec = ax_time.twinx()
     ax_time_ysec.set(yticks=ax_time.get_yticks())
     ax_time_ysec.set(ybound=ax_time.get_ybound())
-    ax_time_ysec.set_yticklabels(['%.02f' % (x * dv) for x in ax_time.get_yticks()])
-    ax_time_ysec.set_ylabel('Voltage [V]')
+    ax_time_ysec.set_yticklabels(["%.02f" % (x * dv) for x in ax_time.get_yticks()])
+    ax_time_ysec.set_ylabel("Voltage [V]")
 
     # Frequency plot
     ax_freq = plt.subplot(gs[1, 0])
-    ax_freq.plot(np.arange(0, len(psp_db)), psp_db, color='C0', zorder=0, label="Spectrum")
+    ax_freq.plot(np.arange(0, len(psp_db)), psp_db, color="C0", zorder=0, label="Spectrum")
     for h_i in h:
-        ax_freq.text(h_i['central_bin'] + 2, psp_db[h_i['central_bin']], str(h_i['num']),
-                     va='bottom', ha='left', weight='bold')
-        ax_freq.plot(h_i['bins'], psp_db[h_i['bins']], color='C4')
-    ax_freq.plot(0, 0, color='C4', label="Harmonics")
-    ax_freq.set(ylabel='dB')
-    ax_freq.set(xlabel='Sample', xlim=[0, fft_n / 2])
+        ax_freq.text(
+            h_i["central_bin"] + 2, psp_db[h_i["central_bin"]], str(h_i["num"]), va="bottom", ha="left", weight="bold"
+        )
+        ax_freq.plot(h_i["bins"], psp_db[h_i["bins"]], color="C4")
+    ax_freq.plot(0, 0, color="C4", label="Harmonics")
+    ax_freq.set(ylabel="dB")
+    ax_freq.set(xlabel="Sample", xlim=[0, fft_n / 2])
     ax_freq.grid(True)
     ax_freq.legend(loc="lower right", ncol=3)
     ax_freq_sec = ax_freq.twiny()
     ax_freq_sec.set_xticks(ax_freq.get_xticks())
     ax_freq_sec.set_xbound(ax_freq.get_xbound())
-    ax_freq_sec.set_xticklabels(['%.02e' % (x * df) for x in ax_freq.get_xticks()])
-    ax_freq_sec.set_xlabel('Frequency [Hz]')
+    ax_freq_sec.set_xticklabels(["%.02e" % (x * df) for x in ax_freq.get_xticks()])
+    ax_freq_sec.set_xlabel("Frequency [Hz]")
 
     # Information plot
     ax_info = plt.subplot(gs[:, 1])
     ax_info.set(xlim=[0, 10], xticks=[], ylim=[0, 10], yticks=[])
-    harmonics_str = '\n'.join(['%d%s @ %-10s : %s' % (h_i['num'], ['st', 'nd', 'rd', 'th', 'th'][h_i['num'] - 1],
-                                                      '%0.3e Hz' % (h_i['freq']),
-                                                      h_i['db']) for h_i in h])
+    harmonics_str = "\n".join(
+        [
+            "%d%s @ %-10s : %s"
+            % (h_i["num"], ["st", "nd", "rd", "th", "th"][h_i["num"] - 1], "%0.3e Hz" % (h_i["freq"]), h_i["db"])
+            for h_i in h
+        ]
+    )
     ax_info_str = """
 ========= FFT ==========
 Points           : {fft_n}
@@ -233,32 +255,32 @@ THD              : {adc_thd:.4} dB
 ENOB             : {adc_enob:.4} bits
 SFDR             : {adc_sfdr:.4} dBc
 Noise floor      : {adc_nfloor:.4} dBFS
-""".format(fft_n=fft_n,
-           fft_res=df,
-           fft_window=window,
-           harmonics_str=harmonics_str,
-           sig_freq=sig_freq,
-           sig_vpeak=sig_vpeak,
-           sig_dc=sig_dc,
-           adc_freq=adc_freq,
-           adc_prd=adc_prd * 1e6,
-           adc_vref=adc_vref,
-           adc_bits=adc_bits,
-           adc_quants=adc_quants,
-           adc_quant=dv * 1e3,
-           adc_snr=adc_snr,
-           adc_thd=adc_thd,
-           adc_sinad=adc_sinad,
-           adc_enob=adc_enob,
-           adc_sfdr=adc_sfdr,
-           adc_nfloor=adc_noise_floor)
-    ax_info.text(1, 9.5, ax_info_str, va='top', ha='left', family='monospace')
+""".format(
+        fft_n=vars_dict["fft_n"],
+        fft_res=vars_dict["df"],
+        fft_window=vars_dict["window"],
+        harmonics_str=harmonics_str,
+        sig_freq=vars_dict["sig_freq"],
+        sig_vpeak=vars_dict["sig_vpeak"],
+        sig_dc=vars_dict["sig_dc"],
+        adc_freq=vars_dict["adc_freq"],
+        adc_prd=vars_dict["adc_prd"] * 1e6,
+        adc_vref=vars_dict["adc_vref"],
+        adc_bits=vars_dict["adc_bits"],
+        adc_quants=vars_dict["adc_quants"],
+        adc_quant=vars_dict["dv"] * 1e3,
+        adc_snr=vars_dict["adc_snr"],
+        adc_thd=vars_dict["adc_thd"],
+        adc_sinad=vars_dict["adc_sinad"],
+        adc_enob=vars_dict["adc_enob"],
+        adc_sfdr=vars_dict["adc_sfdr"],
+        adc_nfloor=vars_dict["adc_noise_floor"],
+    )
+    ax_info.text(1, 9.5, ax_info_str, va="top", ha="left", family="monospace")
 
     # General plotting settings
     plt.tight_layout()
-    plt.style.use('bmh')
+    plt.style.use("bmh")
 
     # Show the result
     plt.show()
-
-    return vars_dict
